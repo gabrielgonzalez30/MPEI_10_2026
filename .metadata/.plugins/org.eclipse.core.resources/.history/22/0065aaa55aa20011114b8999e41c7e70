@@ -84,11 +84,6 @@ int main(void)
   int numRepe=50;
   int aux=0;
   int token=0;
-
-  // Variables para alternar entre nombres y manejo del pulsador
-  char *nombreActual = nombre1;
-  int nombreSeleccionado = 0; // 0: nombre1, 1: nombre2
-  uint8_t estadoAnteriorBoton = GPIO_PIN_SET;
   /* USER CODE END Init */
 
   /* Configure the system clock */
