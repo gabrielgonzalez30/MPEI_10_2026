@@ -34,37 +34,37 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := letras6
+BUILD_ARTIFACT_NAME := Lab2_Nombres
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-letras6.elf \
+Lab2_Nombres.elf \
 
 MAP_FILES += \
-letras6.map \
+Lab2_Nombres.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-letras6.list \
+Lab2_Nombres.list \
 
 OBJCOPY_HEX += \
-letras6.hex \
+Lab2_Nombres.hex \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: letras6.elf secondary-outputs
+main-build: Lab2_Nombres.elf secondary-outputs
 
 # Tool invocations
-letras6.elf letras6.map: $(OBJS) $(USER_OBJS) C:\Users\orden\STM32CubeIDE\workspace_2.2.0\letras6\STM32F103C6TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "letras6.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"C:\Users\orden\STM32CubeIDE\workspace_2.2.0\letras6\STM32F103C6TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="letras6.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Lab2_Nombres.elf Lab2_Nombres.map: $(OBJS) $(USER_OBJS) C:\Users\Joyce\ Garcia\STM32CubeIDE\workspace_2.2.0\repo_1\MPEI_10_2026\Lab2_Nombres\STM32F103C6TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Lab2_Nombres.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"C:\Users\Joyce Garcia\STM32CubeIDE\workspace_2.2.0\repo_1\MPEI_10_2026\Lab2_Nombres\STM32F103C6TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Lab2_Nombres.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -73,19 +73,19 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-letras6.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "letras6.list"
+Lab2_Nombres.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "Lab2_Nombres.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
-letras6.hex: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objcopy  -O ihex $(EXECUTABLES) "letras6.hex"
+Lab2_Nombres.hex: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objcopy  -O ihex $(EXECUTABLES) "Lab2_Nombres.hex"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) default.size.stdout letras6.elf letras6.hex letras6.list letras6.map
+	-$(RM) Lab2_Nombres.elf Lab2_Nombres.hex Lab2_Nombres.list Lab2_Nombres.map default.size.stdout
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST) $(OBJCOPY_HEX)
