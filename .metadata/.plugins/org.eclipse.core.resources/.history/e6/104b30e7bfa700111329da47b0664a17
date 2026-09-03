@@ -329,6 +329,7 @@
 	}
 
 	int getLetra(char letra){
+		int aux=0;
 		if(letra==' '){
 			return 0;
 		}else{
