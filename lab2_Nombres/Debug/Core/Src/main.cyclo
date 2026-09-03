@@ -1,7 +1,7 @@
-../Core/Src/main.c:73:6:main	16
-../Core/Src/main.c:206:7:SystemClock_Config	3
-../Core/Src/main.c:243:14:MX_GPIO_Init	1
-../Core/Src/main.c:300:7:definirLetras	1
-../Core/Src/main.c:331:6:getLetra	2
-../Core/Src/main.c:340:6:secuenciarTransitores	2
-../Core/Src/main.c:352:7:Error_Handler	1
+../Core/Src/main.c:82:5:main	18
+../Core/Src/main.c:222:6:SystemClock_Config	3
+../Core/Src/main.c:259:13:MX_GPIO_Init	1
+../Core/Src/main.c:326:7:definirLetras	1
+../Core/Src/main.c:357:6:getLetra	2
+../Core/Src/main.c:366:6:secuenciarTransitores	2
+../Core/Src/main.c:383:6:Error_Handler	1
