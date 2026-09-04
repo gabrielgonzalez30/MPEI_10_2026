@@ -27,7 +27,6 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -67,7 +66,7 @@ static void MX_GPIO_Init(void);
 /* USER CODE BEGIN PFP */
 		void definirLetras(void);
 		int getLetra(char letra);
-		int secuenciarTransitores(void);
+		int secuenciarTransitores(int display);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -335,15 +334,12 @@ static void MX_GPIO_Init(void)
 
 		}
 
-		int secuenciarTransitores(){
-			static int indice = 0;
-					int pin = transistores[indice];
-
-					indice++;
-					if (indice >= numeroDisplays) {
-						indice = 0;
-					}
-					return pin;
+		int secuenciarTransitores(int display){
+			if( display >= 0 && display < numeroDisplays)
+			{
+				return transistores[display];
+			}
+			return 0;
 		}
 
 /* USER CODE END 4 */
