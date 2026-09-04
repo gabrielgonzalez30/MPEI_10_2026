@@ -124,8 +124,8 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-			  uint8_t estadoActualBoton = HAL_GPIO_ReadPin(Pulsador_GPIO_Port, Pulsador_Pin);
-			  if (estadoAnteriorBoton == GPIO_PIN_SET && estadoActualBoton == GPIO_PIN_RESET)
+		uint8_t estadoActualBoton = HAL_GPIO_ReadPin(Pulsador_GPIO_Port, Pulsador_Pin);
+		if (estadoAnteriorBoton == GPIO_PIN_SET && estadoActualBoton == GPIO_PIN_RESET)
 					{
 						HAL_Delay(20); // Anti-rebote para evitar falsas pulsaciones
 						estadoPulsador++;
@@ -159,24 +159,30 @@ int main(void)
 				 aux++;
 			  }else{
 				  aux=0;
-				  if(token<longitud){
-					  token++;
-				  }else{
-					  token=0;
+				  token++;
+				  if(token>longitud + numeroDisplays){
+					  token = 0;
 				  }
-
 			  }
+
 			  uint16_t valorLetra = 0;
-			  int posCaracter = (token + displayActual) % longitud;
-			  valorLetra = getLetra(nombreActual[posCaracter]);
+			  int posCaracter = token + displayActual;
 
-			  GPIOB -> ODR =0X00;
+			  if (posCaracter < longitud)
+			  {
+				  valorLetra = getLetra(nombreActual[posCaracter]);
+			  }else{
+				  valorLetra = 0;
+			  }
 
-			  GPIOA->ODR = valorLetra & 0x8FFF;
-			  GPIOC->ODR = (GPIOC->ODR & ~0xC000) | ((valorLetra & 0x6000) << 1);
-			 // GPIOA->ODR=getLetra('A');
-			  GPIOB->ODR = secuenciarTransitores();
+			  GPIOA->ODR = (GPIOA -> ODR & ~0x1FFF) | (valorLetra & 0x1FFF);
+			  GPIOC->ODR = (GPIOC->ODR & ~GPIO_PIN_14) | ((valorLetra & 0x2000) << 1);
 			  HAL_Delay(1);
+
+			 // GPIOA->ODR=getLetra('A');
+			  GPIOB->ODR &=((1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7));
+			  GPIOB->ODR |= secuenciarTransitores(displayActual);
+
 
 			  displayActual++;
 					  if (displayActual >= numeroDisplays) {
@@ -241,7 +247,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3
@@ -259,8 +265,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(Pulsador_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PC14 PC15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_14|GPIO_PIN_15;
+  /*Configure GPIO pin : PC14 */
+  GPIO_InitStruct.Pin = GPIO_PIN_14;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
