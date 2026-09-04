@@ -175,14 +175,11 @@ int main(void)
 				  valorLetra = 0;
 			  }
 
+			  GPIOB->ODR &= ~((1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7));
 			  GPIOA->ODR = (GPIOA -> ODR & ~0x1FFF) | (valorLetra & 0x1FFF);
 			  GPIOC->ODR = (GPIOC->ODR & ~GPIO_PIN_14) | ((valorLetra & 0x2000) << 1);
-			  HAL_Delay(1);
-
-			 // GPIOA->ODR=getLetra('A');
-			  GPIOB->ODR &=((1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7));
 			  GPIOB->ODR |= secuenciarTransitores(displayActual);
-
+			  HAL_Delay(1);
 
 			  displayActual++;
 					  if (displayActual >= numeroDisplays) {
