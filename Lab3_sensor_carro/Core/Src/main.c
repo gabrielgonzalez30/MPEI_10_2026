@@ -32,7 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define V_Luz 0.034 // 0.034 cm/us
+#define V_son 0.034 // 0.034 cm/us
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -44,6 +44,15 @@
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
+uint8_t ban1 = 0;
+uint8_t led = 0;
+uint32_t ms_transcurridos = 0;
+
+uint32_t contador = 0;
+uint8_t  echo_medido = 0;
+uint32_t ultimo_disparo_ms = 0;
+
+float x = 0;   // distancia en cm
 
 /* USER CODE END PV */
 
@@ -91,7 +100,7 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_TIM_Base_Start_IT(&htim2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -101,7 +110,40 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+	    if (ban1 == 1)
+	    {
+	        ban1 = 0;
+
+	        if (ms_transcurridos % 500 == 0)
+	        {
+	            if (led == 0) { led = 1; } else { led = 0; }
+	            HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, led);
+	        }
+
+	        if ((ms_transcurridos - ultimo_disparo_ms) >= 60)
+	        {
+	            ultimo_disparo_ms = ms_transcurridos;
+	            enviar_señal();
+	        }
+	    }
+
+	    if (echo_medido == 1)
+	    {
+	        echo_medido = 0;
+
+	        x = contador / 58.0;   // distancia en cm
+
+	        if (x <= 10)
+	        {
+	            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
+	            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
+	        }
+	        else if (x > 12)
+	        {
+	            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
+	            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
+	        }
+	    }
   /* USER CODE END 3 */
 }
 
@@ -165,7 +207,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 7199;
+  htim2.Init.Period = 59999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -249,7 +291,43 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+	void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+	{
+		if (htim->Instance == TIM2)
+		{
+			ban1 = 1;
+			ms_transcurridos = ms_transcurridos + 1;
+		}
+	}
 
+	void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+	{
+		if (GPIO_Pin == GPIO_PIN_2)
+		{
+			if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_2) == GPIO_PIN_SET)
+			{
+				__HAL_TIM_SET_COUNTER(&htim3, 0);   // inicia el conteo
+			}
+			else
+			{
+				contador = __HAL_TIM_GET_COUNTER(&htim3);  // guarda lo que contó (en us)
+				echo_medido = 1;
+			}
+		}
+	}
+
+	void Delay_us(uint16_t us)
+	{
+		__HAL_TIM_SET_COUNTER(&htim3, 0);
+		while (__HAL_TIM_GET_COUNTER(&htim3) < us);
+	}
+
+	void enviar_señal(void)
+	{
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET);
+		Delay_us(10);
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
+	}
 /* USER CODE END 4 */
 
 /**
