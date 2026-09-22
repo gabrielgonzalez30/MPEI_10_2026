@@ -57,8 +57,10 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define trigger_sensor_Pin GPIO_PIN_1
-#define trigger_sensor_GPIO_Port GPIOA
+#define Led_Pin GPIO_PIN_13
+#define Led_GPIO_Port GPIOC
+#define Trigger_Pin GPIO_PIN_1
+#define Trigger_GPIO_Port GPIOA
 #define ECHO_Pin GPIO_PIN_2
 #define ECHO_GPIO_Port GPIOA
 #define motor1_Pin GPIO_PIN_4
