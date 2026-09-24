@@ -1,4 +1,9 @@
-../Core/Src/main.c:64:5:main	8	static
-../Core/Src/main.c:110:6:SystemClock_Config	72	static
-../Core/Src/main.c:150:13:MX_GPIO_Init	32	static
-../Core/Src/main.c:184:6:Error_Handler	4	static,ignoring_inline_asm
+../Core/Src/main.c:69:6:Delay_us	24	static,ignoring_inline_asm
+../Core/Src/main.c:77:6:enviar_senal	8	static
+../Core/Src/main.c:85:7:Medir_Distancia	24	static
+../Core/Src/main.c:120:6:HAL_TIM_PeriodElapsedCallback	16	static
+../Core/Src/main.c:136:5:main	8	static
+../Core/Src/main.c:208:6:SystemClock_Config	72	static
+../Core/Src/main.c:248:13:MX_TIM2_Init	32	static
+../Core/Src/main.c:293:13:MX_GPIO_Init	40	static
+../Core/Src/main.c:355:6:Error_Handler	4	static,ignoring_inline_asm
