@@ -32,7 +32,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define V_SON 0.034f // velocidad del sonido en cm/us
+#define Vel_son 0.034f // velocidad del sonido en cm/us
+#define Dis_stop 10.0f // distancia  a la que debe parar
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -44,11 +45,8 @@
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
-volatile uint32_t ticks_interrupt = 0;
-volatile uint32_t ms_transcurridos = 0;
 uint32_t ultimo_disparo_ms = 0;
 uint32_t ultimo_blink_ms = 0;
-
 uint32_t tiempo_echo_us = 0;
 float x = 0.0f; // Distancia en cm
 uint8_t led_state = 0;
@@ -68,73 +66,49 @@ float Medir_Distancia(void);
 /* USER CODE BEGIN 0 */
 void Delay_us(uint16_t us)
 {
-  // Ajuste preciso para 72 MHz en bucle NOP
-  uint32_t ticks = us * 12;
-  while (ticks--)
-  {
-    __NOP();
-  }
+  __HAL_TIM_SET_COUNTER(&htim2, 0);
+  while (__HAL_TIM_GET_COUNTER(&htim2) < us);
 }
+
 
 void enviar_senal(void)
 {
   HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_RESET);
   Delay_us(2);
   HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_SET);
-  Delay_us(10);
+  Delay_us(11);
   HAL_GPIO_WritePin(Trigger_GPIO_Port, Trigger_Pin, GPIO_PIN_RESET);
 }
 
 float Medir_Distancia(void)
 {
-  enviar_senal();
+  uint32_t timeout_inicio;
 
-  // 1. Esperar a que ECHO pase a nivel ALTO con timeout
-  uint32_t timeout = 60000;
+  enviar_senal();
+  timeout_inicio = HAL_GetTick();
+
+  // 1. Esperar a que ECHO suba (maximo 30 ms)
   while (HAL_GPIO_ReadPin(ECHO_GPIO_Port, ECHO_Pin) == GPIO_PIN_RESET)
   {
-    if (--timeout == 0) return 999.0f; // No hay objeto en rango
+    if ((HAL_GetTick() - timeout_inicio) > 30) return 999.0f;  // sin obstaculo
   }
 
-  // 2. Desactivar interrupciones brevemente para evitar corrupción en la lectura del timer
-  __disable_irq();
-  uint32_t t_inicio = __HAL_TIM_GET_COUNTER(&htim2);
+  // 2. ECHO subio: cronometro en cero
+  __HAL_TIM_SET_COUNTER(&htim2, 0);
 
-  // 3. Esperar a que ECHO vuelva a nivel BAJO
-  timeout = 60000;
+  // 3. Esperar a que ECHO baje (maximo 30000 us)
   while (HAL_GPIO_ReadPin(ECHO_GPIO_Port, ECHO_Pin) == GPIO_PIN_SET)
   {
-    if (--timeout == 0) break;
-  }
-  uint32_t t_fin = __HAL_TIM_GET_COUNTER(&htim2);
-  __enable_irq(); // Reorganizar interrupciones
-
-  // 4. Calcular diferencia de ticks considerando desbordamiento del Timer (Period = 59999)
-  uint32_t duracion_ticks;
-  if (t_fin >= t_inicio)
-  {
-    duracion_ticks = t_fin - t_inicio;
-  }
-  else
-  {
-    duracion_ticks = (60000 - t_inicio) + t_fin;
+    if (__HAL_TIM_GET_COUNTER(&htim2) > 30000) return 999.0f;
   }
 
-  // 5. A 72 MHz (sin prescaler), 72 ticks = 1 microsegundo
-  tiempo_echo_us = duracion_ticks / 72;
+  // 4. El contador ya esta en microsegundos
+  tiempo_echo_us = __HAL_TIM_GET_COUNTER(&htim2);
 
-  // 6. Distancia en cm = (tiempo_us * 0.034) / 2
-  return (float)tiempo_echo_us * 0.017f;
+  // 5. Distancia = tiempo * velocidad del sonido / 2 (ida y vuelta)
+  return (float)tiempo_echo_us * Vel_son / 2.0f;
 }
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-  if (htim->Instance == TIM2)
-  {
-    ticks_interrupt++;
-    ms_transcurridos = (ticks_interrupt * 5) / 6;
-  }
-}
 /* USER CODE END 0 */
 
 /**
@@ -168,7 +142,7 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start_IT(&htim2);
+  HAL_TIM_Base_Start(&htim2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -179,31 +153,30 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	  // 1. Parpadeo del LED de estado cada 500 ms
-	      if ((ms_transcurridos - ultimo_blink_ms) >= 500)
+	      if ((HAL_GetTick() - ultimo_blink_ms) >= 500)
 	      {
-	        ultimo_blink_ms = ms_transcurridos;
+	        ultimo_blink_ms = HAL_GetTick();
 	        led_state = !led_state;
 	        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, led_state ? GPIO_PIN_SET : GPIO_PIN_RESET);
 	      }
 
-	      if ((ms_transcurridos - ultimo_disparo_ms) >= 60)
+	      // 2. Medir distancia cada 60 ms
+	      if ((HAL_GetTick() - ultimo_disparo_ms) >= 60)
 	      {
-	        ultimo_disparo_ms = ms_transcurridos;
+	        ultimo_disparo_ms = HAL_GetTick();
 	        x = Medir_Distancia();
 
-	        // Control de los motores (Evita rangos no definidos)
-	        if (x <= 10.0f)
+	        if (x <= Dis_stop)
 	        {
-	          // Detener vehículo si la distancia es <= 10 cm
-	          HAL_GPIO_WritePin(GPIOB, Motor1_Pin | Motor2_Pin, GPIO_PIN_SET);
+	          // Obstaculo a 10 cm o menos: frenar (ambos pines en 0)
+	          HAL_GPIO_WritePin(GPIOB, Motor1_Pin | Motor2_Pin, GPIO_PIN_RESET);
 	        }
 	        else
 	        {
-	          // Avanzar vehículo para cualquier distancia > 10 cm (o ajusta según tu rango)
-	          HAL_GPIO_WritePin(GPIOB, Motor1_Pin | Motor2_Pin, GPIO_PIN_RESET);
+	          // Camino libre: avanzar (ambos pines en 1)
+	          HAL_GPIO_WritePin(GPIOB, Motor1_Pin | Motor2_Pin, GPIO_PIN_SET);
 	        }
 	      }
-
   }
   /* USER CODE END 3 */
 }
@@ -266,9 +239,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 0;
+  htim2.Init.Prescaler = 71;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 59999;
+  htim2.Init.Period = 65535;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
