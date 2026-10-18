@@ -1242,7 +1242,7 @@ static void forward_cm(float cm)
  8000bce:	3710      	adds	r7, #16
  8000bd0:	46bd      	mov	sp, r7
  8000bd2:	bd80      	pop	{r7, pc}
- 8000bd4:	3f7abaf1 	.word	0x3f7abaf1
+ 8000bd4:	3f8e4a17 	.word	0x3f8e4a17
  8000bd8:	42700000 	.word	0x42700000
 
 08000bdc <main>:

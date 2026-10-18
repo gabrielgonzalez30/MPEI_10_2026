@@ -37,7 +37,7 @@
 #define llanta_cm         6.5f      /* diametro de la llanta                         */
 #define SIDE_CM           50.0f     /* longitud de cada lado                         */
 #define TRACK_CM          14.0f     /* distancia entre centros de las dos llantas    */
-#define ENCO_CONT         20.0f
+#define ENCO_CONT         22.7f
 #define COUNTS_PER_CM     (ENCO_CONT / (PI * llanta_cm))
 
 #define M1_TRIM           1.00f
