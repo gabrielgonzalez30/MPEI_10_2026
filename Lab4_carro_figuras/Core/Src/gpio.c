@@ -42,8 +42,42 @@
 void MX_GPIO_Init(void)
 {
 
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(Motor_1_GPIO_Port, Motor_1_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(Motor_2_GPIO_Port, Motor_2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : Motor_1_Pin */
+  GPIO_InitStruct.Pin = Motor_1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(Motor_1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Motor_2_Pin */
+  GPIO_InitStruct.Pin = Motor_2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(Motor_2_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : Encoder_2_Pin Encoder_1_Pin */
+  GPIO_InitStruct.Pin = Encoder_2_Pin|Encoder_1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
 }
 
