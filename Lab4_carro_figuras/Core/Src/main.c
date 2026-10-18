@@ -40,19 +40,22 @@
 #define ENCO_CONT         22.7f
 #define COUNTS_PER_CM     (ENCO_CONT / (PI * llanta_cm))
 
-#define M1_TRIM           1.00f
-#define M2_TRIM           1.00f
+#define M1_TRIM           1.0f
+#define M2_TRIM           1.60f
 
-#define BASE_SPEED        60.0f     /* % de PWM al avanzar                           */
-#define TURN_SPEED        75.0f     /* % de PWM al girar                             */
+#define BASE_SPEED        90.0f     /* % de PWM al avanzar                           */
+#define TURN_SPEED        90.0f     /* % de PWM al girar                             */
 #define MIN_PWM           35.0f
 #define KP                6.0f      /* ganancia P: % de PWM por cuenta de diferencia */
-#define MOVE_TIMEOUT_MS   5000U    /* seguridad si un encoder falla                 */
-#define SETTLE_MS         300U      /* pausa para que el robot se detenga            */
+#define MOVE_TIMEOUT_MS   8000U    /* seguridad si un encoder falla                 */
+#define SETTLE_MS         80U      /* pausa para que el robot se detenga            */
 
-#define TURN_CAL          3.103f      /* factor de calibracion del giro (ajustar)      */
-#define PAUSE_FIGURE_MS   4000U     /* espera entre figuras distintas                */
-#define PAUSE_REPEAT_MS   1000U     /* espera entre repeticiones de la misma figura  */
+#define TURN_CAL          (3.7f*90.0f/87.0f)      /* factor de calibracion del giro (ajustar)      */
+#define TURN_RAMP         8.0f
+#define RAMP_END_PWM      45.0f     /* PWM al final del frenado (no baja de aqui)     */
+#define TURN_PRE_MS       150U      /* espera ANTES de girar: el carro arranca parado */
+#define TURN_EXTRA_MS     50U
+#define PAUSE_FIGURE_MS   2000U     /* espera entre figuras distintas                */
 
 #define ENC_DEBOUNCE_US   1000U
 
@@ -77,6 +80,7 @@ volatile int32_t enc2 = 0;   /* pulsos del encoder 2 (PB6) */
 
 static volatile uint32_t last_us1 = 0;
 static volatile uint32_t last_us2 = 0;
+
 
 /* USER CODE END PV */
 
@@ -137,8 +141,9 @@ static void motor2_set(int8_t dir, float pct)
 }
 
 /* Mueve ambos motores hasta que cada encoder llegue a 'target' pulsos.
-   Control P: iguala los pulsos de ambas ruedas para ir recto / girar simetrico. */
-static void drive(int32_t target, int8_t d1, int8_t d2, float speed)
+   Control P: iguala los pulsos de ambas ruedas para ir recto / girar simetrico.
+   ramp > 0: en los ultimos 'ramp' pulsos la velocidad baja hasta RAMP_END_PWM. */
+static void drive(int32_t target, int8_t d1, int8_t d2, float speed, float ramp)
 {
   uint32_t t0 = HAL_GetTick();
   uint8_t done1 = 0, done2 = 0;
@@ -153,9 +158,19 @@ static void drive(int32_t target, int8_t d1, int8_t d2, float speed)
     if (e1 >= target) done1 = 1;
     if (e2 >= target) done2 = 1;
 
+    float base = speed;
+    if (ramp > 0.0f)
+    {
+      float rem = (float)target - 0.5f * (float)(e1 + e2);
+      if (rem < ramp)
+      {
+        base = RAMP_END_PWM + (speed - RAMP_END_PWM) * clampf(rem / ramp, 0.0f, 1.0f);
+      }
+    }
+
     float err = (float)(e1 - e2);                 /* >0: la rueda 1 va adelantada */
-    float s1 = clampf(speed * M1_TRIM - KP * err, 0.0f, 100.0f);
-    float s2 = clampf(speed * M2_TRIM + KP * err, 0.0f, 100.0f);
+    float s1 = clampf(base * M1_TRIM - KP * err, 0.0f, 100.0f);
+    float s2 = clampf(base * M2_TRIM + KP * err, 0.0f, 100.0f);
 
     motor1_set(d1, done1 ? 0.0f : clampf(s1, MIN_PWM, 100.0f));
     motor2_set(d2, done2 ? 0.0f : clampf(s2, MIN_PWM, 100.0f));
@@ -171,15 +186,19 @@ static void drive(int32_t target, int8_t d1, int8_t d2, float speed)
 static void forward_cm(float cm)
 {
   int32_t target = (int32_t)(cm * COUNTS_PER_CM + 0.5f);
-  drive(target, +1, +1, BASE_SPEED);
+  drive(target, +1, +1, BASE_SPEED, 0.0f);
 }
 
-/* Giro sobre su eje: una rueda adelante y la otra atras (grados > 0 = izquierda) */
+/* Giro sobre su eje: una rueda adelante y la otra atras (grados > 0 = izquierda).
+   Mismo ordenamiento en todos los giros: espera, giro con frenado, espera. */
 static void turn_deg(float deg)
 {
   float arc_cm = (TRACK_CM / 2.0f) * (deg * PI / 180.0f) * TURN_CAL;
   int32_t target = (int32_t)(arc_cm * COUNTS_PER_CM + 0.5f);
-  drive(target, -1, +1, TURN_SPEED);
+
+  HAL_Delay(TURN_PRE_MS);                                /* arranca siempre parado */
+  drive(target, -1, +1, TURN_SPEED, TURN_RAMP);
+  HAL_Delay(TURN_EXTRA_MS);
 }
 
 /* Dibuja un poligono regular de 'sides' lados */
@@ -239,7 +258,12 @@ int main(void)
 
   HAL_Delay(2000);
 
-  polygon(4);
+  for (uint8_t sides = 3; sides <= 6; sides++)    /* triangulo, cuadrado, pentagono, hexagono */
+   {
+     polygon(sides);
+     if (sides < 6) HAL_Delay(PAUSE_FIGURE_MS);    /* espera entre figuras */
+   }
+
 
 
   /* USER CODE END 2 */
