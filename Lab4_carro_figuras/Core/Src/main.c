@@ -44,12 +44,13 @@
 #define M2_TRIM           1.00f
 
 #define BASE_SPEED        60.0f     /* % de PWM al avanzar                           */
-#define TURN_SPEED        50.0f     /* % de PWM al girar                             */
+#define TURN_SPEED        75.0f     /* % de PWM al girar                             */
+#define MIN_PWM           35.0f
 #define KP                6.0f      /* ganancia P: % de PWM por cuenta de diferencia */
 #define MOVE_TIMEOUT_MS   5000U    /* seguridad si un encoder falla                 */
 #define SETTLE_MS         300U      /* pausa para que el robot se detenga            */
 
-#define TURN_CAL          1.0f      /* factor de calibracion del giro (ajustar)      */
+#define TURN_CAL          3.103f      /* factor de calibracion del giro (ajustar)      */
 #define PAUSE_FIGURE_MS   4000U     /* espera entre figuras distintas                */
 #define PAUSE_REPEAT_MS   1000U     /* espera entre repeticiones de la misma figura  */
 
@@ -156,8 +157,8 @@ static void drive(int32_t target, int8_t d1, int8_t d2, float speed)
     float s1 = clampf(speed * M1_TRIM - KP * err, 0.0f, 100.0f);
     float s2 = clampf(speed * M2_TRIM + KP * err, 0.0f, 100.0f);
 
-    motor1_set(d1, done1 ? 0.0f : s1);
-    motor2_set(d2, done2 ? 0.0f : s2);
+    motor1_set(d1, done1 ? 0.0f : clampf(s1, MIN_PWM, 100.0f));
+    motor2_set(d2, done2 ? 0.0f : clampf(s2, MIN_PWM, 100.0f));
 
     if ((HAL_GetTick() - t0) > MOVE_TIMEOUT_MS) break;   /* seguridad */
   }
@@ -238,7 +239,7 @@ int main(void)
 
   HAL_Delay(2000);
 
-  forward_cm(50.0f);
+  polygon(4);
 
 
   /* USER CODE END 2 */
