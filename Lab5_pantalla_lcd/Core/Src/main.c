@@ -21,10 +21,11 @@
 #include "adc.h"
 #include "tim.h"
 #include "gpio.h"
-#include
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "lcd.h"
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,6 +46,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+char buf_lcd[18];
+uint8_t duty = 50;
+uint8_t ciclo_trab = 0;
 
 /* USER CODE END PV */
 
@@ -91,7 +95,17 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  __HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, duty);
+  Lcd_Init();
 
+  Lcd_Set_Cursor(1,1);
+  sprintf(buf_lcd, "PWM: %u ",duty);
+  Lcd_Send_String(buf_lcd);
+  Lcd_Set_Cursor(2,1);
+  sprintf(buf_lcd, "Porcentaje: %u%% ",ciclo_trab );
+  Lcd_Send_String(buf_lcd);
+  HAL_Delay(50);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -101,6 +115,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
   }
   /* USER CODE END 3 */
 }
