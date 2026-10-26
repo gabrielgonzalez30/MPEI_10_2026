@@ -44,7 +44,8 @@
 #define distan_cm 50.0f
 #define Mo1_puenH_avan 1
 #define Mo2_puenH_avan 1
-#define MOVE_TIMEOUT_MS   8000U
+#define MOVE_TIMEOUT_MS 8000U
+
 
 /* USER CODE END PD */
 
@@ -100,7 +101,27 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   }
 }
 
-static void drive(int32_t target, int8_t d1, int8_t d2, float speed, float ramp)
+/* Control del Motor 1 */
+static void motor1_set(int8_t dir, float pct)
+{
+  uint32_t arr = __HAL_TIM_GET_AUTORELOAD(&htim2);
+  GPIO_PinState lvl = (dir > 0) ? (GPIO_PinState)M1_FWD_LEVEL : (GPIO_PinState)!M1_FWD_LEVEL;
+  HAL_GPIO_WritePin(Motor_1_GPIO_Port, Motor_1_Pin, lvl);
+  __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3,
+                        (uint32_t)(clampf(pct, 0.0f, 100.0f) * (arr + 1) / 100.0f));
+}
+
+/* Control del Motor 2 */
+static void motor2_set(int8_t dir, float pct)
+{
+  uint32_t arr = __HAL_TIM_GET_AUTORELOAD(&htim3);
+  GPIO_PinState lvl = (dir > 0) ? (GPIO_PinState)M2_FWD_LEVEL : (GPIO_PinState)!M2_FWD_LEVEL;
+  HAL_GPIO_WritePin(Motor_2_GPIO_Port, Motor_2_Pin, lvl);
+  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4,
+                        (uint32_t)(clampf(pct, 0.0f, 100.0f) * (arr + 1) / 100.0f));
+}
+
+static void drive(int32_t target, int8_t d1, int8_t d2, float speed)
 {
   uint32_t t0 = HAL_GetTick();
   uint8_t done1 = 0, done2 = 0;
@@ -108,30 +129,26 @@ static void drive(int32_t target, int8_t d1, int8_t d2, float speed, float ramp)
   enc1 = 0;
   enc2 = 0;
 
+  /* Velocidades fijas individuales usando los trims definidos */
+  float s1 = clampf(speed * M1_TRIM, MIN_PWM, 100.0f);
+  float s2 = clampf(speed * M2_TRIM, MIN_PWM, 100.0f);
+
+  motor1_set(d1, s1);
+  motor2_set(d2, s2);
+
   while (!(done1 && done2))
   {
-    int32_t e1 = enc1;
-    int32_t e2 = enc2;
-    if (e1 >= target) done1 = 1;
-    if (e2 >= target) done2 = 1;
-    float base = speed;
-    if (ramp > 0.0f)
-    {
-      float rem = (float)target - 0.5f * (float)(e1 + e2);
-      if (rem < ramp)
-      {
-        base = RAMP_END_PWM + (speed - RAMP_END_PWM) * clampf(rem / ramp, 0.0f, 1.0f);
-      }
-    }
+    if (!done1 && enc1 >= target) { motor1_set(d1, 0.0f); done1 = 1; }
+    if (!done2 && enc2 >= target) { motor2_set(d2, 0.0f); done2 = 1; }
 
-    motor1_set(d1, done1 ? 0.0f : clampf(s1, MIN_PWM, 100.0f));
-    motor2_set(d2, done2 ? 0.0f : clampf(s2, MIN_PWM, 100.0f));
-
+    if ((HAL_GetTick() - t0) > MOVE_TIMEOUT_MS) break;   /* seguridad */
   }
+
   motor1_set(d1, 0.0f);
   motor2_set(d2, 0.0f);
   HAL_Delay(SETTLE_MS);
 }
+
 
 static void forward_cm(float cm)
 {
@@ -149,9 +166,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-	DWT->CYCCNT = 0;
-	DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
