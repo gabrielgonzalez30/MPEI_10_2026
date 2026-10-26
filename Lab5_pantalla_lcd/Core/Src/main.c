@@ -35,6 +35,16 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define Pi 3.141592654f
+#define diam_llanta_cm 6.5f
+#define Cont_Enco 22.7f
+#define Cont_Puls_cm (Cont_Enco/(Pi*diam_llanta_cm))
+#define Tiemp_min_puls 1000u
+
+#define distan_cm 50.0f
+#define Mo1_puenH_avan 1
+#define Mo2_puenH_avan 1
+#define MOVE_TIMEOUT_MS   8000U
 
 /* USER CODE END PD */
 
@@ -49,7 +59,15 @@
 char buf_lcd[18];
 uint8_t duty = 50;
 uint8_t ciclo_trab = 0;
+uint32_t t_m1 = 0 ;
+uint32_t t_m2 = 0;
 
+
+volatile int32_t puls_enco1 = 0;
+volatile int32_t puls_enco2 = 0;
+
+static volatile uint32_t ultimo_puls1 = 0;
+static volatile uint32_t ultimo_puls2 = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -60,6 +78,66 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  uint32_t now = DWT->CYCCNT / (SystemCoreClock / 1000000U);   /* microsegundos */
+
+  if (GPIO_Pin == Encoder_1_Pin)
+  {
+    if ((uint32_t)(now - last_us1) >= ENC_DEBOUNCE_US)
+    {
+      last_us1 = now;
+      __atomic_fetch_add(&enc1, 1, __ATOMIC_RELAXED);
+    }
+  }
+  else if (GPIO_Pin == Encoder_2_Pin)
+  {
+    if ((uint32_t)(now - last_us2) >= ENC_DEBOUNCE_US)
+    {
+      last_us2 = now;
+      __atomic_fetch_add(&enc2, 1, __ATOMIC_RELAXED);
+    }
+  }
+}
+
+static void drive(int32_t target, int8_t d1, int8_t d2, float speed, float ramp)
+{
+  uint32_t t0 = HAL_GetTick();
+  uint8_t done1 = 0, done2 = 0;
+
+  enc1 = 0;
+  enc2 = 0;
+
+  while (!(done1 && done2))
+  {
+    int32_t e1 = enc1;
+    int32_t e2 = enc2;
+    if (e1 >= target) done1 = 1;
+    if (e2 >= target) done2 = 1;
+    float base = speed;
+    if (ramp > 0.0f)
+    {
+      float rem = (float)target - 0.5f * (float)(e1 + e2);
+      if (rem < ramp)
+      {
+        base = RAMP_END_PWM + (speed - RAMP_END_PWM) * clampf(rem / ramp, 0.0f, 1.0f);
+      }
+    }
+
+    motor1_set(d1, done1 ? 0.0f : clampf(s1, MIN_PWM, 100.0f));
+    motor2_set(d2, done2 ? 0.0f : clampf(s2, MIN_PWM, 100.0f));
+
+  }
+  motor1_set(d1, 0.0f);
+  motor2_set(d2, 0.0f);
+  HAL_Delay(SETTLE_MS);
+}
+
+static void forward_cm(float cm)
+{
+  int32_t target = (int32_t)(cm * COUNTS_PER_CM + 0.5f);
+  drive(target, +1, +1, BASE_SPEED, 0.0f);
+}
 
 /* USER CODE END 0 */
 
@@ -71,7 +149,9 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+	CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+	DWT->CYCCNT = 0;
+	DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -94,9 +174,12 @@ int main(void)
   MX_GPIO_Init();
   MX_ADC1_Init();
   MX_TIM1_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   __HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, duty);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+   __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_2, duty);
   Lcd_Init();
 
   Lcd_Set_Cursor(1,1);
