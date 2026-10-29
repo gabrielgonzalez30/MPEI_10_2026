@@ -38,11 +38,13 @@
 #define Mo1_puenH_avan 1
 #define Mo2_puenH_avan 1
 #define MOVE_TIMEOUT_MS 8000U
+#define Distancia 50.0f
 
 #define M1_TRIM 1.0f
 #define M2_TRIM 1.0f
 
-
+#define Volt_ref 1200.0f
+#define ADC_muestras 8U
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -56,7 +58,9 @@
 char buf_lcd[18];
 uint8_t duty = 50;
 uint8_t ciclo_trab = 0;
-
+uint16_t datos_temp = 0;
+uint8_t datos_distan = 0;
+uint8_t datos_alimentacion = 3300;
 
 /* USER CODE END PV */
 
@@ -68,26 +72,38 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-/* Control del Motor 1 */
-static void motor1_set(int8_t dir, float pct)
+static uint16_t Lectura_ADC(uint32_t canal_leer)
 {
-  uint32_t arr = __HAL_TIM_GET_AUTORELOAD(&htim2);
-  GPIO_PinState lvl = (dir > 0) ? (GPIO_PinState)Mo1_puenH_avan : (GPIO_PinState)!Mo1_puenH_avan;
-  HAL_GPIO_WritePin(Motor_1_GPIO_Port, Motor_1_Pin, lvl);
-  __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3,(uint32_t)(pct * (arr + 1) / 100.0f));
+	ADC_ChannelConfTypeDef config = {0};
+	uint32_t suma = 0;
+
+	config.Channel = canal;
+	config.Rank = ADC_REGULAR_RANK_1;
+	config.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
+	HAL_ADC_ConfigChannel(&hadc1, &config);
+
+	for (uint32_t i = 0; i < ADC_muestras; i++)
+	  {
+	    HAL_ADC_Start(&hadc1);
+	    HAL_ADC_PollForConversion(&hadc1, 10);
+	    suma += HAL_ADC_GetValue(&hadc1);
+	    HAL_ADC_Stop(&hadc1);
+	  }
+	  return (uint16_t)(suma / ADC_MUESTRAS);
+}
+static void Motores_avanzar(void)
+{
+  HAL_GPIO_WritePin(Motor_1_GPIO_Port, Motor_1_Pin, Mo1_puenH_avan);
+  HAL_GPIO_WritePin(Motor_2_GPIO_Port, Motor_2_Pin, Mo2_puenH_avan);
+  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, duty);
+  __HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_4, duty);
 }
 
-/* Control del Motor 2 */
-static void motor2_set(int8_t dir, float pct)
+static void Motores_Detener(void)
 {
-  uint32_t arr = __HAL_TIM_GET_AUTORELOAD(&htim3);
-  GPIO_PinState lvl = (dir > 0) ? (GPIO_PinState)Mo2_puenH_avan : (GPIO_PinState)!Mo2_puenH_avan;
-  HAL_GPIO_WritePin(Motor_2_GPIO_Port, Motor_2_Pin, lvl);
-  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4,
-                        (uint32_t)(pct * (arr + 1) / 100.0f));
+  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, 0);
+  __HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_4, 0);
 }
-
 
 /* USER CODE END 0 */
 
@@ -128,19 +144,13 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
-  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, duty);
-   __HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_4, duty);
+  Motores_avanzar();
   Lcd_Init();
 
   Lcd_Set_Cursor(1,1);
   sprintf(buf_lcd, "PWM: %u ",duty);
   Lcd_Send_String(buf_lcd);
-  Lcd_Set_Cursor(2,1);
-  sprintf(buf_lcd, "Porcentaje: %u%% ",ciclo_trab );
-  Lcd_Send_String(buf_lcd);
   HAL_Delay(50);
-
-  forward_cm(distan_cm);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -150,7 +160,13 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
+	  HAL_ADC_Start(&hadc1);
+	  int valor_adc = HAL_ADC_GetValue(&hadc1);
+	  datos_temp = (uint8_t)(valor_adc);
+		  Lcd_Set_Cursor(2,1);
+		  sprintf(buf_lcd, "Temperatura: %u%% ",datos_temp);
+		  Lcd_Send_String(buf_lcd);
+		  HAL_Delay(50);
   }
   /* USER CODE END 3 */
 }
