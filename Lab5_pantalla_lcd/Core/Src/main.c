@@ -26,6 +26,7 @@
 /* USER CODE BEGIN Includes */
 #include "lcd.h"
 #include <stdio.h>
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,6 +45,7 @@
 #define M2_TRIM 1.0f
 
 #define Volt_ref 1200.0f
+#define Histeresis 5.0f
 #define ADC_muestras 8U
 /* USER CODE END PD */
 
@@ -55,13 +57,13 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-char buf_lcd[18];
+char buf_lcd[24];
 uint8_t duty = 50;
 uint8_t ciclo_trab = 0;
 uint16_t datos_temp = 0;
 uint8_t datos_distan = 0;
-uint8_t datos_alimentacion = 3300;
-
+uint16_t datos_alimentacion = 3300;
+uint8_t motores_on = 1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -77,7 +79,7 @@ static uint16_t Lectura_ADC(uint32_t canal_leer)
 	ADC_ChannelConfTypeDef config = {0};
 	uint32_t suma = 0;
 
-	config.Channel = canal;
+	config.Channel = canal_leer;
 	config.Rank = ADC_REGULAR_RANK_1;
 	config.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
 	HAL_ADC_ConfigChannel(&hadc1, &config);
@@ -89,7 +91,7 @@ static uint16_t Lectura_ADC(uint32_t canal_leer)
 	    suma += HAL_ADC_GetValue(&hadc1);
 	    HAL_ADC_Stop(&hadc1);
 	  }
-	  return (uint16_t)(suma / ADC_MUESTRAS);
+	  return (uint16_t)(suma / ADC_muestras);
 }
 static void Motores_avanzar(void)
 {
@@ -142,15 +144,17 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+  HAL_ADCEx_Calibration_Start(&hadc1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
   Motores_avanzar();
   Lcd_Init();
 
-  Lcd_Set_Cursor(1,1);
+ /* Lcd_Set_Cursor(1,1);
   sprintf(buf_lcd, "PWM: %u ",duty);
   Lcd_Send_String(buf_lcd);
-  HAL_Delay(50);
+  HAL_Delay(50)*/
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -160,13 +164,53 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  HAL_ADC_Start(&hadc1);
-	  int valor_adc = HAL_ADC_GetValue(&hadc1);
-	  datos_temp = (uint8_t)(valor_adc);
-		  Lcd_Set_Cursor(2,1);
-		  sprintf(buf_lcd, "Temperatura: %u%% ",datos_temp);
+	  /*Alimentación*/
+	  uint16_t alimen_ref = Lectura_ADC(ADC_CHANNEL_VREFINT);
+	  if (alimen_ref >0)
+	  {
+		  datos_alimentacion = (uint16_t)(Volt_ref*4095.0f/(float)alimen_ref);
+	  }
+	  /*Temperatura*/
+	  uint16_t temp_ref = Lectura_ADC(ADC_CHANNEL_0);
+	  float mv_temp = ((float)temp_ref * (float)datos_alimentacion) / 4095.0f;
+	  datos_temp = (uint16_t)mv_temp;       /* mV = decimas de grado C */
+
+	  /*Distancia*/
+	  uint16_t distan_ref = Lectura_ADC(ADC_CHANNEL_1);
+	 	  float volt_dist = ((float)distan_ref * (float)datos_alimentacion) / 4095.0f / 1000.0f;
+	 	  float dist_cm = 80.0f;
+	 	  if (volt_dist > 0.4f)
+	 	  {
+	 		  dist_cm = 27.16f * powf(volt_dist, -1.15f);
+	 	  }
+	 	  if (dist_cm > 80.0f)
+	 		  {
+	 		  dist_cm = 80.0f;
+	 		  }
+	 	  if (dist_cm < 10.0f)
+	 	  {
+	 		  dist_cm = 10.0f;
+	 	  }
+	 	  datos_distan = (uint8_t)dist_cm;
+
+	 	 	  if (motores_on && (dist_cm <= Distancia))
+	 	 	  {
+	 	 		  Motores_Detener();
+	 	 		  motores_on = 0;
+	 	 	  }
+	 	 	  else if (!motores_on && (dist_cm >= (Distancia + Histeresis)))
+	 	 	  {
+	 	 		  Motores_avanzar();
+	 	 		  motores_on = 1;
+	 	 	  }
+		  Lcd_Set_Cursor(1,1);
+		  sprintf(buf_lcd, "Temp %u.%u ", datos_temp/ 10U,datos_temp % 10U);
 		  Lcd_Send_String(buf_lcd);
-		  HAL_Delay(50);
+		  Lcd_Set_Cursor(2,1);
+		  sprintf(buf_lcd, "V:%u.%uV D:%ucm  ", datos_alimentacion / 1000U, (datos_alimentacion % 1000U) / 10U, datos_distan);
+		  Lcd_Send_String(buf_lcd);
+
+		  HAL_Delay(100);
   }
   /* USER CODE END 3 */
 }
