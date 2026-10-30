@@ -39,7 +39,7 @@
 #define Mo1_puenH_avan 1
 #define Mo2_puenH_avan 1
 #define MOVE_TIMEOUT_MS 8000U
-#define Distancia 50.0f
+#define Distancia 10.0f
 
 #define M1_TRIM 1.0f
 #define M2_TRIM 1.0f
@@ -47,6 +47,14 @@
 #define Volt_ref 1200.0f
 #define Histeresis 5.0f
 #define ADC_muestras 8U
+
+#define ADC_max_filtro 32U
+#define Muestras_dist 15U
+#define Espera_dist_ms 2U        /* el Sharp actualiza cada ~38 ms           */
+#define Filtro_dist 0.5f         /* 0.1 = muy suave/lento, 1.0 = sin filtro  */
+
+#define Duty_arranque 100.0f     /* % durante el impulso inicial             */
+#define Tiempo_arranque_ms 150U
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -58,12 +66,13 @@
 
 /* USER CODE BEGIN PV */
 char buf_lcd[24];
-uint8_t duty = 50;
+uint8_t duty = 80;
 uint8_t ciclo_trab = 0;
 uint16_t datos_temp = 0;
 uint8_t datos_distan = 0;
 uint16_t datos_alimentacion = 3300;
 uint8_t motores_on = 1;
+float dist_filtrada = 80.0f;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -93,12 +102,52 @@ static uint16_t Lectura_ADC(uint32_t canal_leer)
 	  }
 	  return (uint16_t)(suma / ADC_muestras);
 }
+
+static uint16_t Lectura_ADC_filtrada(uint32_t canal_leer, uint8_t muestras, uint32_t espera_ms)
+{
+	uint16_t m[ADC_max_filtro];
+	uint8_t n = muestras;
+	uint32_t suma = 0;
+
+	if (n > ADC_max_filtro) n = ADC_max_filtro;
+	if (n < 4) n = 4;
+
+	for (uint8_t i = 0; i < n; i++)
+	{
+		m[i] = Lectura_ADC(canal_leer);
+		HAL_Delay(espera_ms);
+	}
+
+	/* ordenar de menor a mayor (insercion) */
+	for (uint8_t i = 1; i < n; i++)
+	{
+		uint16_t clave = m[i];
+		int j = (int)i - 1;
+		while (j >= 0 && m[j] > clave)
+		{
+			m[j + 1] = m[j];
+			j--;
+		}
+		m[j + 1] = clave;
+	}
+
+	/* promedio de la mitad central */
+	uint8_t ini = n / 4U;
+	uint8_t fin = n - ini;
+	for (uint8_t i = ini; i < fin; i++)
+	{
+		suma += m[i];
+	}
+	return (uint16_t)(suma / (uint32_t)(fin - ini));
+}
+
 static void Motores_avanzar(void)
 {
   HAL_GPIO_WritePin(Motor_1_GPIO_Port, Motor_1_Pin, Mo1_puenH_avan);
   HAL_GPIO_WritePin(Motor_2_GPIO_Port, Motor_2_Pin, Mo2_puenH_avan);
-  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, duty);
-  __HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_4, duty);
+    HAL_Delay(Tiempo_arranque_ms);
+  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, duty*M1_TRIM);
+  __HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_4, duty*M2_TRIM);
 }
 
 static void Motores_Detener(void)
@@ -176,7 +225,7 @@ int main(void)
 	  datos_temp = (uint16_t)mv_temp;       /* mV = decimas de grado C */
 
 	  /*Distancia*/
-	  uint16_t distan_ref = Lectura_ADC(ADC_CHANNEL_1);
+	  uint16_t distan_ref = Lectura_ADC_filtrada(ADC_CHANNEL_1,Muestras_dist,Espera_dist_ms);
 	 	  float volt_dist = ((float)distan_ref * (float)datos_alimentacion) / 4095.0f / 1000.0f;
 	 	  float dist_cm = 80.0f;
 	 	  if (volt_dist > 0.4f)
@@ -191,14 +240,16 @@ int main(void)
 	 	  {
 	 		  dist_cm = 10.0f;
 	 	  }
-	 	  datos_distan = (uint8_t)dist_cm;
 
-	 	 	  if (motores_on && (dist_cm <= Distancia))
+	 	 dist_filtrada = (Filtro_dist * dist_cm) + ((1.0f - Filtro_dist) * dist_filtrada);
+	 		  datos_distan = (uint8_t)dist_filtrada;
+
+	 	 	  if (motores_on && (dist_filtrada <= Distancia))
 	 	 	  {
 	 	 		  Motores_Detener();
 	 	 		  motores_on = 0;
 	 	 	  }
-	 	 	  else if (!motores_on && (dist_cm >= (Distancia + Histeresis)))
+	 	 	  else if (!motores_on && (dist_filtrada >= (Distancia + Histeresis)))
 	 	 	  {
 	 	 		  Motores_avanzar();
 	 	 		  motores_on = 1;
@@ -210,7 +261,7 @@ int main(void)
 		  sprintf(buf_lcd, "V:%u.%uV D:%ucm  ", datos_alimentacion / 1000U, (datos_alimentacion % 1000U) / 10U, datos_distan);
 		  Lcd_Send_String(buf_lcd);
 
-		  HAL_Delay(100);
+		  HAL_Delay(50);
   }
   /* USER CODE END 3 */
 }
