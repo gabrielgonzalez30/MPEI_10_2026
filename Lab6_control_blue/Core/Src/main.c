@@ -52,8 +52,8 @@
 
 /* USER CODE BEGIN PV */
 uint8_t rxData;
-uint8_t duty = 80;
-uint8_t ciclo_trab = 0;
+uint8_t duty = 14;
+volatile uint8_t cmd = 0;
 uint8_t motores_on = 1;
 /* USER CODE END PV */
 
@@ -61,15 +61,16 @@ uint8_t motores_on = 1;
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 
+/* USER CODE END PFP */
+
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-static void Motores_avanzar(void)
+static void Motores_avanzar(uint8_t dir1, uint8_t dir2, float k1, float k2)
 {
-  HAL_GPIO_WritePin(Motor_1_GPIO_Port, Motor_1_Pin, Mo1_puenH_avan);
-  HAL_GPIO_WritePin(Motor_2_GPIO_Port, Motor_2_Pin, Mo2_puenH_avan);
-    HAL_Delay(Tiempo_arranque_ms);
-  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, duty*M1_TRIM);
-  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_4, duty*M2_TRIM);
+	HAL_GPIO_WritePin(Motor_1_GPIO_Port, Motor_1_Pin, dir1 ? Mo1_puenH_avan : !Mo1_puenH_avan);
+	HAL_GPIO_WritePin(Motor_2_GPIO_Port, Motor_2_Pin, dir2 ? Mo2_puenH_avan : !Mo2_puenH_avan);
+	__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, (uint32_t)(duty * M1_TRIM * k1));
+	__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_4, (uint32_t)(duty * M2_TRIM * k2));
 }
 
 static void Motores_Detener(void)
@@ -114,7 +115,8 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
-  Motores_avanzar();
+  Motores_Detener();
+  HAL_UART_Receive_IT(&huart1, &rxData, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -124,6 +126,27 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  if (cmd)
+	    {
+	      uint8_t c = cmd;
+	      cmd = 0;
+
+	      switch (c)
+	      {
+	        case 'F': Motores_avanzar(1, 1, 1.0f, 1.0f);  break;
+	        case 'B': Motores_avanzar(0, 0, 1.0f, 1.0f);  break;
+	        case 'L': Motores_avanzar(0, 1, 1.0f, 1.0f);  break;
+	        case 'R': Motores_avanzar(1, 0, 1.0f, 1.0f);  break;
+	        case 'G': Motores_avanzar(1, 1, 0.5f, 1.0f);  break;
+	        case 'H': Motores_avanzar(1, 1, 1.0f, 0.5f);  break;
+	        case 'S': Motores_Detener();          break;
+	        case '0': duty = 0;   break;
+	        case '3': duty = 7;  break;
+	        case '5': duty = 11;  break;
+	        case '7': duty = 14;  break;
+	        case '9': duty = 20;  break;
+	      }
+	    }
   }
   /* USER CODE END 3 */
 }
@@ -157,8 +180,8 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV2;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
@@ -172,30 +195,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   if (huart->Instance == USART1)
   {
-    switch (rxData)
-    {
-      case 'F': move(+1, +1, 1.0f, 1.0f);  break;   // adelante
-      case 'B': move(-1, -1, 1.0f, 1.0f);  break;   // atrás
-      case 'L': move(-1, +1, 1.0f, 1.0f);  break;   // giro izq. sobre su eje
-      case 'R': move(+1, -1, 1.0f, 1.0f);  break;   // giro der. sobre su eje
-      case 'G': move(+1, +1, 0.25f, 1.0f); break;   // adelante-izquierda
-      case 'H': move(+1, +1, 1.0f, 0.25f); break;   // adelante-derecha
-      case 'I': move(-1, -1, 0.25f, 1.0f); break;   // atrás-izquierda
-      case 'J': move(-1, -1, 1.0f, 0.25f); break;   // atrás-derecha
-      case 'S': stopMotors();              break;
-
-      // Velocidad: '0'..'9' -> 0..100 %
-      case '0': speedPct = 0.0f;   break;
-      case '1': speedPct = 25.0f;  break;
-      case '2': speedPct = 35.0f;  break;
-      case '3': speedPct = 45.0f;  break;
-      case '4': speedPct = 55.0f;  break;
-      case '5': speedPct = 65.0f;  break;
-      case '6': speedPct = 75.0f;  break;
-      case '7': speedPct = 85.0f;  break;
-      case '8': speedPct = 95.0f;  break;
-      case '9': speedPct = 100.0f; break;
-    }
+	cmd = rxData;
     HAL_UART_Receive_IT(&huart1, &rxData, 1);   // rearmar recepción
   }
 }
