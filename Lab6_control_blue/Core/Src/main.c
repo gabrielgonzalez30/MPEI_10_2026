@@ -18,11 +18,13 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "tim.h"
+#include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdint.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,7 +34,13 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define Mo1_puenH_avan 1
+#define Mo2_puenH_avan 1
 
+#define M1_TRIM 1.0f
+#define M2_TRIM 1.0f
+
+#define Tiempo_arranque_ms 150U
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -43,17 +51,32 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+uint8_t rxData;
+uint8_t duty = 80;
+uint8_t ciclo_trab = 0;
+uint8_t motores_on = 1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 
-/* USER CODE END PFP */
-
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static void Motores_avanzar(void)
+{
+  HAL_GPIO_WritePin(Motor_1_GPIO_Port, Motor_1_Pin, Mo1_puenH_avan);
+  HAL_GPIO_WritePin(Motor_2_GPIO_Port, Motor_2_Pin, Mo2_puenH_avan);
+    HAL_Delay(Tiempo_arranque_ms);
+  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, duty*M1_TRIM);
+  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_4, duty*M2_TRIM);
+}
+
+static void Motores_Detener(void)
+{
+  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, 0);
+  __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_4, 0);
+}
 
 /* USER CODE END 0 */
 
@@ -86,8 +109,12 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_USART1_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+  Motores_avanzar();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -141,7 +168,37 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  if (huart->Instance == USART1)
+  {
+    switch (rxData)
+    {
+      case 'F': move(+1, +1, 1.0f, 1.0f);  break;   // adelante
+      case 'B': move(-1, -1, 1.0f, 1.0f);  break;   // atrás
+      case 'L': move(-1, +1, 1.0f, 1.0f);  break;   // giro izq. sobre su eje
+      case 'R': move(+1, -1, 1.0f, 1.0f);  break;   // giro der. sobre su eje
+      case 'G': move(+1, +1, 0.25f, 1.0f); break;   // adelante-izquierda
+      case 'H': move(+1, +1, 1.0f, 0.25f); break;   // adelante-derecha
+      case 'I': move(-1, -1, 0.25f, 1.0f); break;   // atrás-izquierda
+      case 'J': move(-1, -1, 1.0f, 0.25f); break;   // atrás-derecha
+      case 'S': stopMotors();              break;
 
+      // Velocidad: '0'..'9' -> 0..100 %
+      case '0': speedPct = 0.0f;   break;
+      case '1': speedPct = 25.0f;  break;
+      case '2': speedPct = 35.0f;  break;
+      case '3': speedPct = 45.0f;  break;
+      case '4': speedPct = 55.0f;  break;
+      case '5': speedPct = 65.0f;  break;
+      case '6': speedPct = 75.0f;  break;
+      case '7': speedPct = 85.0f;  break;
+      case '8': speedPct = 95.0f;  break;
+      case '9': speedPct = 100.0f; break;
+    }
+    HAL_UART_Receive_IT(&huart1, &rxData, 1);   // rearmar recepción
+  }
+}
 /* USER CODE END 4 */
 
 /**
