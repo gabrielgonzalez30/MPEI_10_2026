@@ -34,8 +34,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define Mo1_puenH_avan 1
-#define Mo2_puenH_avan 1
 
 #define M1_TRIM 1.0f
 #define M2_TRIM 1.0f
@@ -65,18 +63,34 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static void Motor1_set(uint8_t adelante, uint32_t p)
+{
+	__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, adelante ? p : 0);  // IN1
+	__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_1, adelante ? 0 : p);  // IN2
+}
+
+static void Motor2_set(uint8_t adelante, uint32_t p)
+{
+	__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_4, adelante ? p : 0);  // IN3
+	__HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_2, adelante ? 0 : p);  // IN4
+}
+
 static void Motores_avanzar(uint8_t dir1, uint8_t dir2, float k1, float k2)
 {
-	HAL_GPIO_WritePin(Motor_1_GPIO_Port, Motor_1_Pin, dir1 ? Mo1_puenH_avan : !Mo1_puenH_avan);
-	HAL_GPIO_WritePin(Motor_2_GPIO_Port, Motor_2_Pin, dir2 ? Mo2_puenH_avan : !Mo2_puenH_avan);
-	__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, (uint32_t)(duty * M1_TRIM * k1));
-	__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_4, (uint32_t)(duty * M2_TRIM * k2));
+	// Enable siempre en 1 mientras se mueve
+		HAL_GPIO_WritePin(Motor_1_GPIO_Port, Motor_1_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(Motor_2_GPIO_Port, Motor_2_Pin, GPIO_PIN_SET);
+
+		Motor1_set(dir1, (uint32_t)(duty * M1_TRIM * k1));
+		Motor2_set(dir2, (uint32_t)(duty * M2_TRIM * k2));
 }
 
 static void Motores_Detener(void)
 {
   __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, 0);
   __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_4, 0);
+  __HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_1, 0);
+  __HAL_TIM_SetCompare(&htim3, TIM_CHANNEL_2, 0);
 }
 
 
@@ -113,9 +127,12 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_TIM2_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   Motores_Detener();
   HAL_UART_Receive_IT(&huart1, &rxData, 1);
   /* USER CODE END 2 */
@@ -140,7 +157,7 @@ int main(void)
 	        case 'R': Motores_avanzar(1, 0, 1.0f, 1.0f);  break;
 	        case 'G': Motores_avanzar(1, 1, 0.5f, 1.0f);  break;
 	        case 'H': Motores_avanzar(1, 1, 1.0f, 0.5f);  break;
-	        case 'S': Motores_Detener();          break;
+	        case 'S': Motores_Detener();          		  break;
 	        case '0': duty = 0;   break;
 	        case '3': duty = 40;  break;
 	        case '5': duty = 60;  break;

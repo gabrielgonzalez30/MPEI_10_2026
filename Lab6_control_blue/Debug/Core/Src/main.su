@@ -1,6 +1,8 @@
-../Core/Src/main.c:68:13:Motores_avanzar	32	static
-../Core/Src/main.c:76:13:Motores_Detener	4	static
-../Core/Src/main.c:89:5:main	16	static
-../Core/Src/main.c:159:6:SystemClock_Config	72	static
-../Core/Src/main.c:195:6:HAL_UART_RxCpltCallback	16	static
-../Core/Src/main.c:211:6:Error_Handler	4	static,ignoring_inline_asm
+../Core/Src/main.c:66:13:Motor1_set	16	static
+../Core/Src/main.c:72:13:Motor2_set	16	static
+../Core/Src/main.c:78:13:Motores_avanzar	24	static
+../Core/Src/main.c:88:13:Motores_Detener	4	static
+../Core/Src/main.c:103:5:main	16	static
+../Core/Src/main.c:176:6:SystemClock_Config	72	static
+../Core/Src/main.c:212:6:HAL_UART_RxCpltCallback	16	static
+../Core/Src/main.c:228:6:Error_Handler	4	static,ignoring_inline_asm

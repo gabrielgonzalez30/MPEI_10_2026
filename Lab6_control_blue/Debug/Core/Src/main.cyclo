@@ -1,6 +1,8 @@
-../Core/Src/main.c:68:13:Motores_avanzar	1
-../Core/Src/main.c:76:13:Motores_Detener	1
-../Core/Src/main.c:89:5:main	14
-../Core/Src/main.c:159:6:SystemClock_Config	3
-../Core/Src/main.c:195:6:HAL_UART_RxCpltCallback	4
-../Core/Src/main.c:211:6:Error_Handler	1
+../Core/Src/main.c:66:13:Motor1_set	3
+../Core/Src/main.c:72:13:Motor2_set	3
+../Core/Src/main.c:78:13:Motores_avanzar	1
+../Core/Src/main.c:88:13:Motores_Detener	1
+../Core/Src/main.c:103:5:main	14
+../Core/Src/main.c:176:6:SystemClock_Config	3
+../Core/Src/main.c:212:6:HAL_UART_RxCpltCallback	4
+../Core/Src/main.c:228:6:Error_Handler	1
