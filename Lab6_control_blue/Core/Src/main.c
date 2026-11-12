@@ -52,7 +52,7 @@
 
 /* USER CODE BEGIN PV */
 uint8_t rxData;
-uint8_t duty = 14;
+uint8_t duty = 80;
 volatile uint8_t cmd = 0;
 uint8_t motores_on = 1;
 /* USER CODE END PV */
@@ -78,6 +78,7 @@ static void Motores_Detener(void)
   __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, 0);
   __HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_4, 0);
 }
+
 
 /* USER CODE END 0 */
 
@@ -141,10 +142,10 @@ int main(void)
 	        case 'H': Motores_avanzar(1, 1, 1.0f, 0.5f);  break;
 	        case 'S': Motores_Detener();          break;
 	        case '0': duty = 0;   break;
-	        case '3': duty = 7;  break;
-	        case '5': duty = 11;  break;
-	        case '7': duty = 14;  break;
-	        case '9': duty = 20;  break;
+	        case '3': duty = 40;  break;
+	        case '5': duty = 60;  break;
+	        case '7': duty = 80;  break;
+	        case '9': duty = 100;  break;
 	      }
 	    }
   }
@@ -195,8 +196,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   if (huart->Instance == USART1)
   {
-	cmd = rxData;
-    HAL_UART_Receive_IT(&huart1, &rxData, 1);   // rearmar recepción
+	  if (rxData != '\r' && rxData != '\n'){
+	        cmd = rxData;
+	  }
+	  HAL_UART_Receive_IT(&huart1, &rxData, 1);
   }
 }
 /* USER CODE END 4 */
