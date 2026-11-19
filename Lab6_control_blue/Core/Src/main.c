@@ -43,6 +43,9 @@
 /*servo*/
 #define Pulse_min 550
 #define Pulse_max 2450
+#define Angulo_A 0
+#define Angulo_B 90
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -57,6 +60,7 @@ uint8_t rxData;
 uint8_t duty = 100;
 volatile uint8_t cmd = 0;
 uint8_t motores_on = 1;
+uint8_t servo_b = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -67,6 +71,8 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void servo_angulo(uint8_t ang);
+
 static void Motor1_set(uint8_t adelante, uint32_t p)
 {
 	__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, adelante ? p : 0);  // IN1
@@ -132,13 +138,17 @@ int main(void)
   MX_USART1_UART_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
   Motores_Detener();
   HAL_UART_Receive_IT(&huart1, &rxData, 1);
+  servo_angulo(Angulo_A);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -162,6 +172,11 @@ int main(void)
 	        case 'G': Motores_avanzar(1, 1, 0.5f, 1.0f);  break;
 	        case 'H': Motores_avanzar(1, 1, 1.0f, 0.5f);  break;
 	        case 'S': Motores_Detener();          		  break;
+
+	        case 'X':
+	        		servo_b = !servo_b;
+	                servo_angulo(servo_b ? Angulo_B : Angulo_A);
+	                break;
 	        case '0': duty = 0;   break;
 	        case '3': duty = 40;  break;
 	        case '5': duty = 60;  break;
@@ -215,7 +230,7 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void servo_angulo(uint8_t ang)
 {
-	uint16_t = pwm_servo;
+	uint16_t  pwm_servo;
 	pwm_servo = (uint16_t)((ang-0)*(Pulse_max-Pulse_min)/(180-0)+Pulse_min);
 	 __HAL_TIM_SetCompare(&htim4, TIM_CHANNEL_2, pwm_servo);
 }
