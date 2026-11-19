@@ -39,6 +39,10 @@
 #define M2_TRIM 1.0f
 
 #define Tiempo_arranque_ms 150U
+
+/*servo*/
+#define Pulse_min 550
+#define Pulse_max 2450
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -50,7 +54,7 @@
 
 /* USER CODE BEGIN PV */
 uint8_t rxData;
-uint8_t duty = 80;
+uint8_t duty = 100;
 volatile uint8_t cmd = 0;
 uint8_t motores_on = 1;
 /* USER CODE END PV */
@@ -209,6 +213,12 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void servo_angulo(uint8_t ang)
+{
+	uint16_t = pwm_servo;
+	pwm_servo = (uint16_t)((ang-0)*(Pulse_max-Pulse_min)/(180-0)+Pulse_min);
+	 __HAL_TIM_SetCompare(&htim4, TIM_CHANNEL_2, pwm_servo);
+}
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   if (huart->Instance == USART1)
